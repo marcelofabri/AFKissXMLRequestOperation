@@ -1,6 +1,6 @@
 // AFKissXMLRequestOperation.m
 //
-// Copyright (c) 2011 Mattt Thompson (http://mattt.me/)
+// Copyright (c) 2011 Gowalla (http://gowalla.com/)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,107 +21,83 @@
 // THE SOFTWARE.
 
 #import "AFKissXMLRequestOperation.h"
-
-static dispatch_queue_t af_kissxml_request_operation_processing_queue;
-static dispatch_queue_t kissxml_request_operation_processing_queue() {
-    if (af_kissxml_request_operation_processing_queue == NULL) {
-        af_kissxml_request_operation_processing_queue = dispatch_queue_create("com.alamofire.networking.kissxml-request.processing", 0);
-    }
-    
-    return af_kissxml_request_operation_processing_queue;
-}
+#import "AFKissXMLSerializer.h"
+#import "DDXML.h"
 
 @interface AFKissXMLRequestOperation ()
-@property (readwrite, nonatomic, retain) DDXMLDocument *responseXMLDocument;
-@property (readwrite, nonatomic, retain) NSError *XMLError;
-
+@property (readwrite, nonatomic, strong) DDXMLDocument *responseXMLDocument;
+@property (readwrite, nonatomic, strong) NSError *error;
+@property (readwrite, nonatomic, strong) NSRecursiveLock *lock;
 @end
 
 @implementation AFKissXMLRequestOperation
-@synthesize responseXMLDocument = _responseXMLDocument;
-@synthesize XMLError = _XMLError;
+@dynamic error;
+@dynamic lock;
 
-+ (AFKissXMLRequestOperation *)XMLDocumentRequestOperationWithRequest:(NSURLRequest *)urlRequest 
-                                                              success:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, DDXMLDocument *XMLDocument))success 
-                                                              failure:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, NSError *error, DDXMLDocument *XMLDocument))failure
-{
-    AFKissXMLRequestOperation *requestOperation = [[self alloc] initWithRequest:urlRequest];
-    
++ (instancetype)XMLDocumentRequestOperationWithRequest:(NSURLRequest *)urlRequest
+                                               success:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, DDXMLDocument *XMLDocument))success
+                                               failure:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, NSError *error, DDXMLDocument *XMLDocument))failure {
+    AFKissXMLRequestOperation *requestOperation = [(AFKissXMLRequestOperation *)[self alloc] initWithRequest:urlRequest];
     [requestOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
         if (success) {
             success(operation.request, operation.response, responseObject);
         }
     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
         if (failure) {
-            failure(operation.request, operation.response, operation.error, [(AFKissXMLRequestOperation *)operation responseXMLDocument]);
+            failure(operation.request, operation.response, error, [(AFKissXMLRequestOperation *)operation responseXMLDocument]);
         }
     }];
     
     return requestOperation;
+    
 }
 
-- (DDXMLDocument *)responseXMLDocument {
-    if (!_responseXMLDocument && [self isFinished] && [self.responseData length] > 0) {
-        NSError *error = nil;
-        self.responseXMLDocument = [[DDXMLDocument alloc] initWithData:self.responseData options:0 error:&error];
-        self.XMLError = error;
+- (instancetype)initWithRequest:(NSURLRequest *)urlRequest {
+    self = [super initWithRequest:urlRequest];
+    if (!self) {
+        return nil;
     }
+    
+    self.responseSerializer = [AFKissXMLSerializer serializer];
+    
+    return self;
+}
+
+#pragma mark AFJSONRequestOperation
+
+- (DDXMLDocument *)responseXMLDocument {
+    [self.lock lock];
+    if (!_responseXMLDocument && [self.responseData length] > 0 && [self isFinished] && !self.error) {
+        NSError *error = nil;
+        self.responseXMLDocument = [self.responseSerializer responseObjectForResponse:self.response data:self.responseData error:&error];
+        self.error = error;
+    }
+    [self.lock unlock];
     
     return _responseXMLDocument;
 }
 
-- (NSError *)error {
-    if (_XMLError) {
-        return _XMLError;
-    } else {
-        return [super error];
-    }
-}
-
 #pragma mark - AFHTTPRequestOperation
-
-+ (NSSet *)acceptableContentTypes {
-    return [NSSet setWithObjects:@"application/xml", @"text/xml", @"text/html", @"application/xhtml+xml", nil];
-}
-
-+ (BOOL)canProcessRequest:(NSURLRequest *)request {
-    return [[[request URL] pathExtension] isEqualToString:@"xml"] || [[[request URL] pathExtension] isEqualToString:@"html"] || [super canProcessRequest:request];
-}
 
 - (void)setCompletionBlockWithSuccess:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
                               failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-retain-cycles"
-    self.completionBlock = ^ {
-        if (self.error) {
-            if (failure) {
-                dispatch_async(self.failureCallbackQueue ? self.failureCallbackQueue : dispatch_get_main_queue(), ^(void) {
-                    failure(self, self.error);
-                });
-            }
-        } else {
-            dispatch_async(kissxml_request_operation_processing_queue(), ^{
-                DDXMLDocument *XMLDocument = self.responseXMLDocument;
-                
-                if(self.XMLError){
-                    if (failure) {
-                        dispatch_async( self.failureCallbackQueue ? self.failureCallbackQueue : dispatch_get_main_queue(), ^{
-                            failure(self, self.XMLError);
-                        });
-                    }
-                }
-                else{
-                    if (success) {
-                        dispatch_async( self.successCallbackQueue ? self.successCallbackQueue : dispatch_get_main_queue(), ^{
-                            success(self, XMLDocument);
-                        });
-                    }
-                }
-            });
+    __weak __typeof(self)weakSelf = self;
+    [super setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+        if (![responseObject isKindOfClass:[NSData class]]) {
+            strongSelf.responseXMLDocument = responseObject;
         }
-    };
-#pragma clang diagnostic pop
+        if (success) {
+            success(operation, responseObject);
+        }
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+        strongSelf.error = error;
+        if (failure) {
+            failure(operation, error);
+        }
+    }];
 }
 
 @end

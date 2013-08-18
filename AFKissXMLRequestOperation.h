@@ -1,6 +1,6 @@
 // AFKissXMLRequestOperation.h
 //
-// Copyright (c) 2011 Mattt Thompson (http://mattt.me/)
+// Copyright (c) 2013 AFNetworking (http://afnetworking.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@
 #import <Foundation/Foundation.h>
 #import "AFHTTPRequestOperation.h"
 
-#import "DDXML.h"
+@class DDXMLDocument;
 
 /**
  `AFKissXMLRequestOperation` is a subclass of `AFHTTPRequestOperation` for downloading and working with XML response data using KissXML.
@@ -38,20 +38,16 @@
  
  @warning `AFKissXMLRequestOperation` requires KissXML to also be added to the project. Please consult the KissXML documentation for details on how to add that library to your project.
  */
-@interface AFKissXMLRequestOperation : AFHTTPRequestOperation {
-@private
-    DDXMLDocument *_responseXMLDocument;
-    NSError *_XMLError;
-}
+@interface AFKissXMLRequestOperation : AFHTTPRequestOperation
 
-///----------------------------
+///------------------------------
 /// @name Getting Response Data
-///----------------------------
+///------------------------------
 
 /**
  A XML object constructed from the response data. If an error occurs while parsing, `nil` will be returned, and the `error` property will be set to the error.
  */
-@property (readonly, nonatomic, retain) DDXMLDocument *responseXMLDocument;
+@property (readonly, nonatomic, strong) DDXMLDocument *responseXMLDocument;
 
 ///----------------------------------
 /// @name Creating Request Operations
@@ -66,8 +62,9 @@
  
  @return A new XML request operation
  */
-+ (AFKissXMLRequestOperation *)XMLDocumentRequestOperationWithRequest:(NSURLRequest *)urlRequest
-                                                              success:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, DDXMLDocument *XMLDocument))success
-                                                              failure:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, NSError *error, DDXMLDocument *XMLDocument))failure;
++ (instancetype)XMLDocumentRequestOperationWithRequest:(NSURLRequest *)urlRequest
+                                               success:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, DDXMLDocument *XMLDocument))success
+                                               failure:(void (^)(NSURLRequest *request, NSHTTPURLResponse *response, NSError *error, DDXMLDocument *XMLDocument))failure;
+
 
 @end
