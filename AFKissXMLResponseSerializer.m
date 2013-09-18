@@ -1,4 +1,4 @@
-// AFKissXMLSerializer.h
+// AFKissXMLResponseSerializer.m
 //
 // Copyright (c) 2013 AFNetworking (http://afnetworking.com)
 //
@@ -20,8 +20,41 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import "AFSerialization.h"
 
-@interface AFKissXMLSerializer : AFHTTPSerializer
+#import "AFKissXMLResponseSerializer.h"
+#import <DDXML.h>
+
+@implementation AFKissXMLResponseSerializer
+
++ (instancetype)serializer {
+    AFKissXMLResponseSerializer *serializer = [[self alloc] init];
+    
+    return serializer;
+}
+
+- (instancetype)init {
+    self = [super init];
+    if (!self) {
+        return nil;
+    }
+    
+    self.acceptableContentTypes = [[NSSet alloc] initWithObjects:@"application/xml", @"text/xml", nil];
+    
+    return self;
+}
+
+#pragma mark - AFHTTPResponseSerializer
+
+- (id)responseObjectForResponse:(NSHTTPURLResponse *)response
+                           data:(NSData *)data
+                          error:(NSError *__autoreleasing *)error
+{
+    if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
+        return nil;
+    }
+    
+    return [[DDXMLDocument alloc] initWithData:data options:0 error:error];
+}
+
 
 @end

@@ -21,7 +21,7 @@
 // THE SOFTWARE.
 
 #import "AFKissXMLRequestOperation.h"
-#import "AFKissXMLSerializer.h"
+#import "AFKissXMLResponseSerializer.h"
 #import "DDXML.h"
 
 @interface AFKissXMLRequestOperation ()
@@ -58,7 +58,7 @@
         return nil;
     }
     
-    self.responseSerializer = [AFKissXMLSerializer serializer];
+    self.responseSerializer = [AFKissXMLResponseSerializer serializer];
     
     return self;
 }
