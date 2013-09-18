@@ -6,7 +6,7 @@ Pod::Spec.new do |s|
 	s.license = 'MIT'
 	s.summary = 'An extension for AFNetworking that provides an interface to parse XML using KissXML.'
 	s.source = { :git => 'https://github.com/marcelofabri/AFKissXMLRequestOperation.git', :tag => '0.0.3' }
-	s.source_files = 'AFKissXMLRequestOperation.{h,m}', 'AFKissXMLSerializer.{h,m}'
+	s.source_files = 'AFKissXMLRequestOperation.{h,m}', 'AFKissXMLResponseSerializer.{h,m}'
 	s.dependency 'AFNetworking', '2.0.0-RC3'
 	s.dependency 'KissXML', '~> 5.0'
 	s.xcconfig = { 'HEADER_SEARCH_PATHS' => '$(SDKROOT)/usr/include/libxml2' }
